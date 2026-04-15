@@ -122,11 +122,19 @@ nlohmann::json VerdictPolicy::evaluate(const OFIQ::FaceImageQualityAssessment& a
         }
     }
 
+    // Full threshold map so the frontend can render every measure with its
+    // threshold (not just the ones that failed).
+    json thresholds_json = json::object();
+    for (const auto& [k, v] : thresholds_) {
+        thresholds_json[k] = v;
+    }
+
     json out = json::object();
     out["icao_compliant"]  = any_threshold_evaluated && failed.empty();
     out["uqs"]             = uqs_scalar;
     out["uqs_ok"]          = uqs_ok;
     out["failed"]          = std::move(failed);
+    out["thresholds"]      = std::move(thresholds_json);
     out["thresholds_count"] = static_cast<int>(thresholds_.size());
     return out;
 }

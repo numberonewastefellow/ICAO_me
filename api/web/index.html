@@ -17,7 +17,7 @@
            display: flex; align-items: center; justify-content: space-between; }
   header h1 { margin: 0 0 2px; font-size: 18px; }
   header p { margin: 0; color: var(--muted); font-size: 12px; }
-  header .right { display: flex; align-items: center; gap: 16px; }
+  header .right { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: 12px; }
 
   main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
   .panel { background: var(--panel); border: 1px solid var(--border);
@@ -49,6 +49,7 @@
   button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
   button.secondary { background: var(--panel2); color: var(--text);
                      border: 1px solid var(--border); }
+  button.icon { padding: 6px 10px; }
 
   /* Aggregate cards */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -90,14 +91,15 @@
                      text-transform: uppercase; letter-spacing: .04em; }
   table.results tr.row { cursor: pointer; }
   table.results tr.row:hover { background: rgba(255,255,255,.02); }
-  table.results tr.expanded { background: rgba(76,194,255,.04); }
   table.results td.score { text-align: right; font-variant-numeric: tabular-nums;
                            font-weight: 600; }
   table.results td.score.ok   { color: var(--ok); }
   table.results td.score.bad  { color: var(--bad); }
   table.results td.score.warn { color: var(--warn); }
-  table.results img.thumb { width: 36px; height: 36px; object-fit: cover;
-                            border-radius: 4px; border: 1px solid var(--border); }
+  table.results img.thumb { width: 44px; height: 44px; object-fit: cover;
+                            border-radius: 4px; border: 1px solid var(--border);
+                            cursor: zoom-in; transition: transform .1s; }
+  table.results img.thumb:hover { transform: scale(1.12); border-color: var(--accent); }
   table.results .filename { font-weight: 500; }
   table.results .meta { color: var(--muted); font-size: 11px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 999px;
@@ -107,24 +109,78 @@
   .badge.bad  { background: rgba(248,113,113,.15); color: var(--bad); }
   .badge.muted{ background: rgba(138,143,155,.15); color: var(--muted); }
 
-  /* Expanded row details */
-  tr.detail td { background: var(--panel2); padding: 16px 24px; }
-  tr.detail .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-                    gap: 6px 14px; }
-  tr.detail .m { display: flex; justify-content: space-between;
-                 padding: 4px 8px; border-radius: 4px; }
-  tr.detail .m.fail { background: rgba(248,113,113,.08); }
-  tr.detail .m .name { color: var(--text); }
-  tr.detail .m .val { font-variant-numeric: tabular-nums; font-weight: 600; }
-  tr.detail .m .val.ok { color: var(--ok); }
-  tr.detail .m .val.bad { color: var(--bad); }
-  tr.detail .m .val.warn { color: var(--warn); }
-
   .err { color: var(--bad); }
   .progress { height: 4px; background: var(--border); border-radius: 2px;
               overflow: hidden; margin-top: 10px; }
   .progress .bar { height: 100%; background: var(--accent);
                    width: 0; transition: width .15s linear; }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.72);
+                    display: none; align-items: flex-start; justify-content: center;
+                    padding: 24px; z-index: 100; overflow: auto; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border);
+           border-radius: 10px; width: min(1200px, 100%);
+           display: grid; grid-template-columns: minmax(300px, 520px) 1fr;
+           overflow: hidden; }
+  .modal .img-col { background: #000; position: relative;
+                    display: flex; align-items: center; justify-content: center;
+                    min-height: 400px; padding: 12px; }
+  .modal .img-col img { max-width: 100%; max-height: 78vh; object-fit: contain;
+                        border-radius: 4px; display: block; }
+  .modal .img-col .bbox-hint { position: absolute; top: 10px; left: 12px;
+                               background: rgba(0,0,0,.6); padding: 4px 8px;
+                               border-radius: 4px; font-size: 11px; color: var(--muted); }
+  .modal .info-col { padding: 20px 24px; max-height: 80vh; overflow-y: auto; }
+  .modal .close-btn { position: absolute; top: 12px; right: 12px;
+                      background: rgba(0,0,0,.6); color: #fff; border: 0;
+                      width: 32px; height: 32px; border-radius: 50%;
+                      font-size: 18px; line-height: 28px; cursor: pointer;
+                      font-weight: 600; z-index: 2; }
+
+  .modal .title-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; gap: 12px; }
+  .modal .title-row h3 { margin: 0; font-size: 16px; word-break: break-all; }
+  .modal .title-row .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  .modal .uqs { display: flex; align-items: baseline; gap: 14px;
+                margin: 10px 0 18px; padding: 14px 16px;
+                background: var(--panel2); border: 1px solid var(--border);
+                border-radius: 6px; }
+  .modal .uqs .num { font-size: 44px; font-weight: 700; line-height: 1;
+                     font-variant-numeric: tabular-nums; }
+  .modal .uqs .num.ok   { color: var(--ok); }
+  .modal .uqs .num.warn { color: var(--warn); }
+  .modal .uqs .num.bad  { color: var(--bad); }
+  .modal .uqs .detail { flex: 1; }
+  .modal .uqs .detail .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .modal .uqs .detail .thr { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  .modal .group { margin-bottom: 18px; }
+  .modal .group h4 { margin: 0 0 8px; font-size: 11px; color: var(--muted);
+                     text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+                     border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .modal .group table { width: 100%; border-collapse: collapse; }
+  .modal .group td { padding: 5px 8px; font-size: 12px; vertical-align: middle; }
+  .modal .group tr.fail td { background: rgba(248,113,113,.06); }
+  .modal .group tr.ok td { }
+  .modal .group td.name { color: var(--text); }
+  .modal .group td.bar-cell { width: 100px; padding: 5px 8px; }
+  .modal .group td.bar-cell .bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; position: relative; }
+  .modal .group td.bar-cell .bar-fill { height: 100%; background: var(--ok); }
+  .modal .group td.bar-cell .bar-fill.bad { background: var(--bad); }
+  .modal .group td.bar-cell .bar-fill.warn { background: var(--warn); }
+  .modal .group td.bar-cell .bar-thr { position: absolute; top: -2px; bottom: -2px; width: 2px; background: rgba(255,255,255,.5); }
+  .modal .group td.val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; width: 55px; }
+  .modal .group td.val.ok   { color: var(--ok); }
+  .modal .group td.val.bad  { color: var(--bad); }
+  .modal .group td.val.warn { color: var(--warn); }
+  .modal .group td.thr-col { text-align: right; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; width: 60px; }
+  .modal .group td.raw-col { text-align: right; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; width: 80px; }
+
+  .modal details.raw-json summary { cursor: pointer; color: var(--muted); font-size: 11px; margin-top: 12px; }
+  .modal pre { background: #0a0b0e; border: 1px solid var(--border); border-radius: 4px;
+               padding: 10px; font-size: 11px; overflow: auto; max-height: 240px; }
 </style>
 </head>
 <body>
@@ -134,7 +190,7 @@
     <p>Bulk validation against ISO/IEC 29794-5 quality measures.</p>
   </div>
   <div class="right">
-    <span class="meta" id="serverInfo"></span>
+    <span id="serverInfo"></span>
   </div>
 </header>
 
@@ -144,7 +200,7 @@
     <div id="drop">
       <p><strong>Drop one or many face photos here</strong> &nbsp;or&nbsp;
          <button type="button" id="pick">Choose files</button></p>
-      <p class="hint">JPEG / PNG / BMP — selection is processed locally on the server, nothing leaves the host.</p>
+      <p class="hint">JPEG / PNG / BMP — processed locally on the server, nothing leaves the host.</p>
     </div>
     <input type="file" id="file" accept="image/jpeg,image/png,image/bmp" multiple>
 
@@ -182,7 +238,7 @@
 
   <!-- Per-file results -->
   <div class="panel" id="resultsPanel" style="display:none">
-    <h2>Per-image results <span style="color:var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0;">— click a row to expand all measures</span></h2>
+    <h2>Per-image results <span style="color:var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0;">— click a row or thumbnail for full metrics + image</span></h2>
     <table class="results">
       <thead>
         <tr>
@@ -200,6 +256,18 @@
   </div>
 </main>
 
+<!-- Modal for detailed per-image view -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="img-col" style="position:relative">
+      <button class="close-btn" id="modalClose" title="Close (Esc)">×</button>
+      <div class="bbox-hint" id="modalBboxHint"></div>
+      <img id="modalImg" alt="">
+    </div>
+    <div class="info-col" id="modalInfo"></div>
+  </div>
+</div>
+
 <script>
 const $ = sel => document.querySelector(sel);
 const drop = $('#drop'), fileInput = $('#file'), pick = $('#pick');
@@ -210,8 +278,28 @@ const rowsTbody = $('#rows');
 const aggPanel = $('#aggPanel'), resultsPanel = $('#resultsPanel');
 const cardsEl = $('#cards'), histEl = $('#hist'), topfailsEl = $('#topfails');
 const serverInfo = $('#serverInfo');
+const modalBackdrop = $('#modalBackdrop');
+const modalImg = $('#modalImg'), modalInfo = $('#modalInfo'), modalBboxHint = $('#modalBboxHint');
+const modalClose = $('#modalClose');
 
-let items = [];   // {id, file, thumbUrl, status, result, error, infMs}
+// Grouping for the detail modal — same categorisation as the original
+// single-image view.
+const MEASURE_GROUPS = [
+  { title: "Overall",        measures: ["UnifiedQualityScore"] },
+  { title: "Geometry & crop",measures: ["InterEyeDistance", "HeadSize",
+                                        "LeftwardCropOfTheFaceImage", "RightwardCropOfTheFaceImage",
+                                        "MarginAboveOfTheFaceImage", "MarginBelowOfTheFaceImage",
+                                        "HeadPoseYaw", "HeadPosePitch", "HeadPoseRoll"] },
+  { title: "Face state",     measures: ["SingleFacePresent", "EyesOpen", "EyesVisible",
+                                        "MouthClosed", "ExpressionNeutrality", "NoHeadCoverings"] },
+  { title: "Occlusion",      measures: ["FaceOcclusionPrevention", "MouthOcclusionPrevention"] },
+  { title: "Image quality",  measures: ["Sharpness", "CompressionArtifacts", "NaturalColour",
+                                        "DynamicRange", "IlluminationUniformity", "BackgroundUniformity",
+                                        "LuminanceMean", "LuminanceVariance",
+                                        "UnderExposurePrevention", "OverExposurePrevention"] },
+];
+
+let items = [];
 let nextId = 1;
 
 fetch('/version').then(r => r.json()).then(j => {
@@ -235,6 +323,10 @@ fileInput.addEventListener('change', () => {
 });
 runBtn.addEventListener('click', runAll);
 resetBtn.addEventListener('click', resetAll);
+
+modalClose.addEventListener('click', closeModal);
+modalBackdrop.addEventListener('click', ev => { if (ev.target === modalBackdrop) closeModal(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeModal(); });
 
 function addFiles(files) {
   for (const f of files) {
@@ -292,20 +384,28 @@ function statusBadge(it) {
   return '';
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
 function renderRows() {
   rowsTbody.innerHTML = '';
   for (const it of items) {
     const tr = document.createElement('tr');
     tr.className = 'row';
     tr.dataset.id = it.id;
-    tr.addEventListener('click', () => toggleExpand(it.id));
+    tr.addEventListener('click', ev => {
+      if (ev.target.tagName !== 'IMG') openModal(it.id);
+    });
 
     const uqs = it.result?.measures?.UnifiedQualityScore?.scalar;
     const compliant = it.result?.verdict?.icao_compliant;
     const failedNames = it.result?.verdict?.failed?.map(f => f.measure) || [];
 
     tr.innerHTML = `
-      <td><img class="thumb" src="${it.thumbUrl}" alt=""></td>
+      <td><img class="thumb" data-open="${it.id}" src="${it.thumbUrl}" alt="" title="Click to see details"></td>
       <td>
         <div class="filename">${escapeHtml(it.file.name)}</div>
         <div class="meta">${(it.file.size/1024).toFixed(1)} KB</div>
@@ -325,76 +425,146 @@ function renderRows() {
     `;
     rowsTbody.appendChild(tr);
 
-    if (it._expanded) appendDetailRow(it);
+    // Thumbnail opens modal as well (stopPropagation to avoid double firing).
+    const img = tr.querySelector('img.thumb');
+    img.addEventListener('click', ev => {
+      ev.stopPropagation();
+      openModal(it.id);
+    });
   }
 }
 
-function appendDetailRow(it) {
-  const tr = document.createElement('tr');
-  tr.className = 'detail';
-  tr.dataset.detailFor = it.id;
-  const td = document.createElement('td');
-  td.colSpan = 7;
-  if (it.error) {
-    td.innerHTML = `<div class="err">${escapeHtml(it.error)}</div>`;
-  } else if (!it.result) {
-    td.innerHTML = `<div class="meta">No result yet.</div>`;
-  } else {
-    const r = it.result;
-    const failedSet = new Set((r.verdict?.failed || []).map(f => f.measure));
-    const thresholds = {};
-    (r.verdict?.failed || []).forEach(f => thresholds[f.measure] = f.threshold);
-    const measureNames = Object.keys(r.measures || {}).sort();
-    const grid = measureNames.map(name => {
-      const m = r.measures[name];
-      const fail = failedSet.has(name);
-      const cls = fail ? 'bad' : (m.scalar < 0 ? 'bad' : 'ok');
-      const thr = thresholds[name];
-      const thrTxt = thr != null ? ` / ${thr}` : '';
-      return `<div class="m ${fail ? 'fail' : ''}">
-                <span class="name">${name}</span>
-                <span class="val ${cls}">${m.scalar.toFixed(0)}${thrTxt}</span>
-              </div>`;
-    }).join('');
-    td.innerHTML = `
-      <div class="meta" style="margin-bottom:8px">
-        bbox ${r.bounding_box?.x ?? '?'},${r.bounding_box?.y ?? '?'}
-        ${r.bounding_box?.width ?? '?'}×${r.bounding_box?.height ?? '?'}
-        · ${r.image?.width ?? '?'}×${r.image?.height ?? '?'} src
-        · request ${r.request_id ?? ''}
-      </div>
-      <div class="grid">${grid}</div>
-    `;
-  }
-  tr.appendChild(td);
-  // insert after the parent row
-  const parent = rowsTbody.querySelector(`tr.row[data-id="${it.id}"]`);
-  if (parent && parent.nextSibling) {
-    rowsTbody.insertBefore(tr, parent.nextSibling);
-  } else {
-    rowsTbody.appendChild(tr);
-  }
-}
-
-function toggleExpand(id) {
+function openModal(id) {
   const it = items.find(x => x.id === id);
   if (!it) return;
-  it._expanded = !it._expanded;
-  const existing = rowsTbody.querySelector(`tr.detail[data-detail-for="${id}"]`);
-  const parent = rowsTbody.querySelector(`tr.row[data-id="${id}"]`);
-  if (existing) {
-    existing.remove();
-    parent?.classList.remove('expanded');
-  } else {
-    parent?.classList.add('expanded');
-    appendDetailRow(it);
-  }
+  modalImg.src = it.thumbUrl;
+  renderModalInfo(it);
+  modalBackdrop.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  modalBackdrop.classList.remove('open');
+  document.body.style.overflow = '';
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
+function renderModalInfo(it) {
+  const r = it.result;
+  if (it.error) {
+    modalInfo.innerHTML = `
+      <div class="title-row"><h3>${escapeHtml(it.file.name)}</h3></div>
+      <p class="err">${escapeHtml(it.error)}</p>
+    `;
+    modalBboxHint.textContent = '';
+    return;
+  }
+  if (!r) {
+    modalInfo.innerHTML = `
+      <div class="title-row"><h3>${escapeHtml(it.file.name)}</h3></div>
+      <p class="meta">Not processed yet. Click Run to evaluate.</p>
+    `;
+    modalBboxHint.textContent = '';
+    return;
+  }
+
+  const thresholds = (r.verdict && r.verdict.thresholds) || {};
+  const measures = r.measures || {};
+  const failedSet = new Set((r.verdict?.failed || []).map(f => f.measure));
+
+  const uqs = measures.UnifiedQualityScore?.scalar;
+  const uqsThr = thresholds.UnifiedQualityScore ?? 70;
+  const uqsCls = colorClass(uqs, uqsThr);
+  const compliant = r.verdict?.icao_compliant;
+
+  const bbox = r.bounding_box || {};
+  const img = r.image || {};
+  modalBboxHint.textContent = `bbox (${bbox.x},${bbox.y}) ${bbox.width}×${bbox.height} · src ${img.width}×${img.height}`;
+
+  const groupHtml = MEASURE_GROUPS.map(g => {
+    const rows = g.measures.filter(name => measures[name]).map(name => {
+      const m = measures[name];
+      const scalar = m.scalar;
+      const thr = thresholds[name];
+      const fail = failedSet.has(name) || (thr != null && scalar < thr);
+      const cls = scalar < 0 ? 'bad' : (fail ? 'bad' : colorClass(scalar, thr ?? 70));
+      const pct = Math.max(0, Math.min(100, scalar));
+      const thrPct = thr != null ? Math.max(0, Math.min(100, thr)) : null;
+      const barHtml = `
+        <div class="bar-track">
+          <div class="bar-fill ${cls}" style="width:${pct}%"></div>
+          ${thrPct != null ? `<div class="bar-thr" style="left:${thrPct}%"></div>` : ''}
+        </div>
+      `;
+      return `
+        <tr class="${fail ? 'fail' : 'ok'}">
+          <td class="name">${name}</td>
+          <td class="val ${cls}">${scalar.toFixed(0)}</td>
+          <td class="thr-col">${thr != null ? `/ ${thr}` : ''}</td>
+          <td class="bar-cell">${barHtml}</td>
+          <td class="raw-col">${typeof m.raw === 'number' ? m.raw.toFixed(3) : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+    if (!rows) return '';
+    return `
+      <div class="group">
+        <h4>${g.title}</h4>
+        <table>${rows}</table>
+      </div>
+    `;
+  }).join('');
+
+  // Any measures not in a group, dumped at the bottom.
+  const known = new Set(MEASURE_GROUPS.flatMap(g => g.measures));
+  const extras = Object.keys(measures).filter(k => !known.has(k)).sort();
+  const extrasHtml = extras.length === 0 ? '' : `
+    <div class="group">
+      <h4>Other</h4>
+      <table>
+        ${extras.map(name => {
+          const m = measures[name];
+          const thr = thresholds[name];
+          const fail = thr != null && m.scalar < thr;
+          const cls = m.scalar < 0 ? 'bad' : (fail ? 'bad' : colorClass(m.scalar, thr ?? 70));
+          return `
+            <tr class="${fail ? 'fail' : 'ok'}">
+              <td class="name">${name}</td>
+              <td class="val ${cls}">${m.scalar.toFixed(0)}</td>
+              <td class="thr-col">${thr != null ? `/ ${thr}` : ''}</td>
+              <td class="bar-cell"></td>
+              <td class="raw-col">${typeof m.raw === 'number' ? m.raw.toFixed(3) : '—'}</td>
+            </tr>`;
+        }).join('')}
+      </table>
+    </div>`;
+
+  modalInfo.innerHTML = `
+    <div class="title-row">
+      <h3>${escapeHtml(it.file.name)}</h3>
+      <div class="meta">${compliant ? '<span class="badge ok">ICAO compliant</span>' : '<span class="badge bad">Not compliant</span>'}</div>
+    </div>
+    <div class="meta">
+      ${(it.file.size/1024).toFixed(1)} KB ·
+      inference ${r.inference_ms?.toFixed?.(0) ?? '?'} ms ·
+      ${img.width ?? '?'}×${img.height ?? '?'} src ·
+      request ${escapeHtml(r.request_id ?? '')}
+    </div>
+
+    <div class="uqs">
+      <div class="num ${uqsCls}">${uqs != null ? uqs.toFixed(0) : '—'}</div>
+      <div class="detail">
+        <div class="label">Unified Quality Score</div>
+        <div class="thr">threshold ${uqsThr} · ${compliant ? 'PASS' : 'FAIL'}</div>
+      </div>
+    </div>
+
+    ${groupHtml}
+    ${extrasHtml}
+
+    <details class="raw-json">
+      <summary>Raw JSON response</summary>
+      <pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>
+    </details>
+  `;
 }
 
 async function processOne(it) {
@@ -427,7 +597,6 @@ async function processOne(it) {
 async function runAll() {
   if (items.length === 0) return;
   runBtn.disabled = true;
-  // mark queued items
   for (const it of items) if (it.status !== 'done' && it.status !== 'error') it.status = 'queued';
   renderRows();
   const concurrency = Math.max(1, Math.min(16, parseInt(concurrencyInput.value, 10) || 4));
@@ -472,7 +641,6 @@ function refreshAggregate() {
     return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
   }
 
-  // Failure histogram
   const failCounts = {};
   for (const it of done) {
     for (const f of (it.result.verdict?.failed || [])) {
@@ -481,7 +649,6 @@ function refreshAggregate() {
   }
   const topFails = Object.entries(failCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
 
-  // Cards
   cardsEl.innerHTML = '';
   function card(label, value, sub, cls='') {
     const v = (typeof value === 'number') ? value : (value ?? '—');
@@ -504,7 +671,6 @@ function refreshAggregate() {
   card('Mean inf', mean(infArr) != null ? `${mean(infArr).toFixed(0)} ms` : '—');
   card('p95 inf', pct(infArr, 0.95) != null ? `${pct(infArr, 0.95).toFixed(0)} ms` : '—');
 
-  // Histogram of UQS (10 buckets of width 10)
   const buckets = new Array(10).fill(0);
   for (const v of uqsArr) {
     const b = Math.min(9, Math.max(0, Math.floor(v / 10)));
@@ -520,7 +686,6 @@ function refreshAggregate() {
             </div>`;
   }).join('');
 
-  // Top failing measures
   topfailsEl.innerHTML = topFails.length === 0
     ? '<div class="meta" style="padding:6px 10px">No failures.</div>'
     : topFails.map(([name, count]) => `
