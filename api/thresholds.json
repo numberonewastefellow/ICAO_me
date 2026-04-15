@@ -1,0 +1,35 @@
+{
+  "_doc": "ICAO/ISO compliance thresholds for ofiq-api. Each value is the minimum scalar score (0-100) a measure must reach for the image to be considered compliant. Tune to match your jurisdiction's strictness. UnifiedQualityScore is the headline measure.",
+  "thresholds": {
+    "UnifiedQualityScore":         70,
+
+    "BackgroundUniformity":        60,
+    "IlluminationUniformity":      60,
+    "DynamicRange":                60,
+    "Sharpness":                   60,
+    "CompressionArtifacts":        60,
+    "NaturalColour":               60,
+    "UnderExposurePrevention":     60,
+    "OverExposurePrevention":      60,
+
+    "SingleFacePresent":           70,
+    "EyesOpen":                    70,
+    "MouthClosed":                 70,
+    "EyesVisible":                 70,
+    "MouthOcclusionPrevention":    70,
+    "FaceOcclusionPrevention":     70,
+    "ExpressionNeutrality":        70,
+    "NoHeadCoverings":             70,
+
+    "InterEyeDistance":            70,
+    "HeadSize":                    60,
+    "LeftwardCropOfTheFaceImage":  60,
+    "RightwardCropOfTheFaceImage": 60,
+    "MarginAboveOfTheFaceImage":   60,
+    "MarginBelowOfTheFaceImage":   60,
+
+    "HeadPoseYaw":                 60,
+    "HeadPosePitch":               60,
+    "HeadPoseRoll":                60
+  }
+}

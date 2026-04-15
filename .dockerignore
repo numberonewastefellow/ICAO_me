@@ -1,0 +1,8 @@
+samples/
+output/
+.git
+build_*.log
+api/build/
+
+# Top-level project README only — keep markdown inside third_party/ intact.
+/README.md

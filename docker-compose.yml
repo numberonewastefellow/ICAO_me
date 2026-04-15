@@ -1,0 +1,44 @@
+services:
+  # ---------------------------------------------------------------------------
+  # ofiq — pure CLI image. Run ad-hoc batches via:
+  #   docker compose --profile cli run --rm ofiq -c /opt/ofiq/data -i ... -o ...
+  # Not started by default `docker compose up`.
+  # ---------------------------------------------------------------------------
+  ofiq:
+    build: .
+    image: ofiq:1.1.2
+    container_name: ofiq-cli
+    profiles: ["cli"]
+    volumes:
+      - ./samples:/work/samples:ro
+      - ./output:/work/output
+
+  # ---------------------------------------------------------------------------
+  # ofiq-api — long-lived native C++ HTTP server.
+  # Loads OFIQ models ONCE per worker at startup; per-request inference ~300 ms.
+  # ---------------------------------------------------------------------------
+  ofiq-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: ofiq-api:1.1.2
+    container_name: ofiq-api
+    ports:
+      - "8080:8080"
+    environment:
+      OFIQ_WORKERS: "4"
+      OFIQ_QUEUE_DEPTH: "256"
+      OFIQ_MAX_UPLOAD_MB: "10"
+      OFIQ_REQUEST_TIMEOUT_MS: "30000"
+      OFIQ_LOG_LEVEL: "info"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4g

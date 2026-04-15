@@ -1,0 +1,129 @@
+cmake_minimum_required(VERSION 3.26)
+
+file(READ "Version.txt" ver)
+
+string(REGEX MATCH "VERSION_MAJOR ([0-9]*)" _ ${ver})
+set(ver_major ${CMAKE_MATCH_1})
+
+string(REGEX MATCH "VERSION_MINOR ([0-9]*)" _ ${ver})
+set(ver_minor ${CMAKE_MATCH_1})
+
+string(REGEX MATCH "VERSION_PATCH ([0-9]*)" _ ${ver})
+set(ver_patch ${CMAKE_MATCH_1})
+
+string(REGEX MATCH "VERSION_SUFFIX ([0-9a-zA-Z]*)" _ ${ver})
+set(ver_suffix ${CMAKE_MATCH_1})
+
+set(FULL_PROJECT_VERSION ${ver_major}.${ver_minor}.${ver_patch})
+message("version: ${FULL_PROJECT_VERSION}")
+
+add_compile_definitions(OFIQ_VERSION_MAJOR=${ver_major})
+add_compile_definitions(OFIQ_VERSION_MINOR=${ver_minor})
+add_compile_definitions(OFIQ_VERSION_PATCH=${ver_patch})
+add_compile_definitions(OFIQ_VERSION_SUFFIX=${ver_suffix})
+add_compile_definitions(OFIQ_VERSION=${FULL_PROJECT_VERSION})
+
+option(DOWNLOAD_ONNX "Whether ONNX must be downloaded" ON)
+option(DOWNLOAD_MODELS_AND_IMAGES "Whether model and image files must be downloaded" OFF)
+
+SET(USE_CONAN ON CACHE BOOL "If conan should be used or not")
+SET(ARCHITECTURE x64 CACHE STRING "x64 or Win32 for Windows")
+SET(OS windows CACHE STRING "Operating System windows, linux or mac")
+
+include(cmake/DownloadDependencies.cmake)
+
+if(UNIX AND NOT APPLE)
+    project(OFIQLib VERSION ${ver_major}.${ver_minor}.${ver_patch} LANGUAGES CXX)
+
+    if(DOWNLOAD_ONNX)
+        if( OS STREQUAL "linux-arm64" )
+	   set(ONNX_FILE onnxruntime-linux-aarch64-1.18.1.tgz)
+	   set(ONNX_URL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-aarch64-1.18.1.tgz)
+        else ()
+	   set(ONNX_FILE onnxruntime-linux-x64-1.18.1.tgz)
+	   set(ONNX_URL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz)
+        endif()
+        message("Downloading ONNX from ${ONNX_URL}")
+        download_file(${ONNX_URL}  ${ONNX_FILE})
+    endif(DOWNLOAD_ONNX)
+    if ( OS STREQUAL "linux-arm64" )
+       include(OFIQlib/CMakeLists.ubuntu_arm64.cmake)
+    else ()
+       include(OFIQlib/CMakeLists.ubuntu.cmake)
+    endif()
+elseif(APPLE)
+    project(OFIQLibMac VERSION ${ver_major}.${ver_minor}.${ver_patch} LANGUAGES CXX)
+
+    if(DOWNLOAD_ONNX)
+        set(ONNX_FILE onnxruntime-osx-universal2-1.18.1.tgz)
+        set(ONNX_URL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-osx-universal2-1.18.1.tgz)
+        message("Downloading ONNX from ${ONNX_URL}")
+        download_file(${ONNX_URL}  ${ONNX_FILE})
+    endif(DOWNLOAD_ONNX)
+    include(OFIQlib/CMakeLists.macos.cmake)
+else(APPLE)
+    project(OFIQLibWin VERSION ${ver_major}.${ver_minor}.${ver_patch} LANGUAGES CXX)
+
+    if(DOWNLOAD_ONNX)
+        if( ARCHITECTURE STREQUAL "x64" )
+            set(ONNX_FILE onnxruntime-win-x64-1.18.1.zip)
+            set(ONNX_URL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-win-x64-1.18.1.zip)
+            message("Downloading ONNX from ${ONNX_URL}")
+            download_file(${ONNX_URL}  ${ONNX_FILE})
+        else ()
+            set(ONNX_FILE onnxruntime-win-x86-1.18.1.zip)
+            set(ONNX_URL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-win-x86-1.18.1.zip)
+            message("Downloading ONNX from ${ONNX_URL}")
+            download_file(${ONNX_URL}  ${ONNX_FILE})
+        endif()
+    endif(DOWNLOAD_ONNX)
+
+    include(OFIQlib/CMakeLists.windows.cmake)
+endif (UNIX AND NOT APPLE)
+
+if(DOWNLOAD_MODELS_AND_IMAGES)
+    # ----------------------------------------------------------------------
+    # LOCAL VENDOR PATCH (E:\projects\OIFQ): prefer pre-downloaded zips from
+    # /opt/downloads/ when present, fall back to the upstream URLs otherwise.
+    # This makes the docker build reproducible without hitting
+    # resources.eulisa.europa.eu at every build.
+    # ----------------------------------------------------------------------
+    set(MODEL_FILE OFIQ-MODELS.zip)
+    if(EXISTS "/opt/downloads/OFIQ-Models.zip")
+        set(MODEL_URL "file:///opt/downloads/OFIQ-Models.zip")
+        message(STATUS "Using LOCAL vendored models: ${MODEL_URL}")
+    else()
+        set(MODEL_URL https://resources.eulisa.europa.eu/research/OFIQ-Models.zip)
+        message("Downloading models from ${MODEL_URL}")
+    endif()
+    file(DOWNLOAD ${MODEL_URL}  ${MODEL_FILE} SHOW_PROGRESS)
+    message("Extracting models to ${PROJECT_SOURCE_DIR}/data")
+    file(ARCHIVE_EXTRACT
+        INPUT ${MODEL_FILE}
+        DESTINATION ${PROJECT_SOURCE_DIR}/data
+        VERBOSE
+    )
+    file(REMOVE ${MODEL_FILE})
+
+    set(IMAGES_FILE OFIQ-IMAGES.zip)
+    if(EXISTS "/opt/downloads/OFIQ-ImagesConformanceTest+TargetValues.zip")
+        set(IMAGES_URL "file:///opt/downloads/OFIQ-ImagesConformanceTest+TargetValues.zip")
+        message(STATUS "Using LOCAL vendored conformance images: ${IMAGES_URL}")
+    else()
+        set(IMAGES_URL https://resources.eulisa.europa.eu/research/OFIQ-ImagesConformanceTest+TargetValues.zip)
+        message("Downloading images from ${IMAGES_URL}")
+    endif()
+    file(DOWNLOAD ${IMAGES_URL}  ${IMAGES_FILE} SHOW_PROGRESS)
+    message("Extracting images to ${PROJECT_SOURCE_DIR}/data/tests")
+    file(ARCHIVE_EXTRACT
+        INPUT ${IMAGES_FILE}
+        DESTINATION ${PROJECT_SOURCE_DIR}/data/tests
+        VERBOSE
+    )
+    file(REMOVE ${IMAGES_FILE})
+endif(DOWNLOAD_MODELS_AND_IMAGES)
+
+# starting : Tests
+include(CTest)
+enable_testing()
+add_subdirectory(testing)

@@ -1,0 +1,37 @@
+# Build artifacts
+api/build/
+api/vendor/
+build/
+build_*.log
+*.log
+
+# Large vendored blobs — fetched via scripts/fetch_models.sh (see README)
+# These zips total ~760 MB; they exceed GitHub file size limits.
+third_party/downloads/
+!third_party/downloads/.gitkeep
+
+# Personal / runtime
+output/*
+!output/.gitkeep
+samples/*.jpg
+samples/*.jpeg
+samples/*.png
+samples/*.bmp
+!samples/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.conda/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Docker
+.dockerignore.bak

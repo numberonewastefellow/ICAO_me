@@ -1,0 +1,82 @@
+# =============================================================================
+# OFIQ API — Native C++ HTTP server linking libofiq_lib.so directly.
+# Models are loaded ONCE per worker at startup (no per-request init cost).
+#
+# Builds on top of `ofiq:1.1.2` (Phase 1).  Build the base image first:
+#   docker build -t ofiq:1.1.2 -f Dockerfile .
+# Then build the API:
+#   docker build -t ofiq-api:1.1.2 -f Dockerfile.api .
+# =============================================================================
+
+# ---- Stage 1: api builder --------------------------------------------------
+FROM ofiq:1.1.2 AS api-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Vendor pinned single-header dependencies (no network at compile time).
+ARG HTTPLIB_VERSION=v0.18.5
+ARG NLOHMANN_VERSION=v3.11.3
+ARG STB_COMMIT=f7f20f39fe4f206c6f19e26ebfef7b261ee59ee4
+
+RUN mkdir -p /src/api/vendor/nlohmann \
+ && curl -fsSL -o /src/api/vendor/httplib.h \
+        https://raw.githubusercontent.com/yhirose/cpp-httplib/${HTTPLIB_VERSION}/httplib.h \
+ && curl -fsSL -o /src/api/vendor/nlohmann/json.hpp \
+        https://github.com/nlohmann/json/releases/download/${NLOHMANN_VERSION}/json.hpp \
+ && curl -fsSL -o /src/api/vendor/stb_image.h \
+        https://raw.githubusercontent.com/nothings/stb/${STB_COMMIT}/stb_image.h
+
+# Copy our source tree.
+COPY api/CMakeLists.txt /src/api/CMakeLists.txt
+COPY api/cmake/         /src/api/cmake/
+COPY api/src/           /src/api/src/
+COPY api/tests/         /src/api/tests/
+COPY api/web/           /src/api/web/
+
+WORKDIR /src/api/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release \
+          -DOFIQ_INCLUDE_DIR=/opt/ofiq/include \
+          -DOFIQ_LIB_DIR=/opt/ofiq/Release/lib \
+          .. \
+ && cmake --build . -j"$(nproc)" \
+ && ctest --output-on-failure \
+ && strip ofiq_server
+
+# ---- Stage 2: api runtime --------------------------------------------------
+FROM ofiq:1.1.2 AS api-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=api-builder /src/api/build/ofiq_server /usr/local/bin/ofiq_server
+COPY api/thresholds.json /etc/ofiq-api/thresholds.json
+
+ENV OFIQ_CONFIG_DIR=/opt/ofiq/data \
+    OFIQ_CONFIG_FILE=ofiq_config.jaxn \
+    OFIQ_HOST=0.0.0.0 \
+    OFIQ_PORT=8080 \
+    OFIQ_WORKERS=4 \
+    OFIQ_QUEUE_DEPTH=256 \
+    OFIQ_MAX_UPLOAD_MB=10 \
+    OFIQ_THRESHOLDS=/etc/ofiq-api/thresholds.json \
+    OFIQ_LOG_LEVEL=info
+
+EXPOSE 8080
+
+# Reset the base image's ENTRYPOINT (which points at OFIQSampleApp).
+ENTRYPOINT []
+CMD ["/usr/local/bin/ofiq_server"]
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=5 \
+    CMD curl -fsS http://127.0.0.1:8080/readyz || exit 1

@@ -1,0 +1,47 @@
+# =============================================================================
+# OFIQ API — DEV SHELL
+# Pre-baked container with build tools + vendored headers but NO source code.
+# Use it to iterate on api/src/*.cc with a fast `cmake && make` cycle without
+# rebuilding the whole Docker image on every code change.
+#
+# Build once:
+#   docker build -t ofiq-dev:latest -f Dockerfile.dev .
+#
+# Iterate (from E:/projects/OIFQ):
+#   docker run --rm -it -v "$(pwd)/api:/work/api" ofiq-dev:latest
+#   # then inside the container:
+#   cd /work/api && mkdir -p build && cd build
+#   cmake -DCMAKE_BUILD_TYPE=Release -DVENDOR_DIR=/vendor ..
+#   cmake --build . -j$(nproc)
+#   ctest --output-on-failure
+# =============================================================================
+
+FROM ofiq:1.1.2
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        curl \
+        ca-certificates \
+        gdb \
+        less \
+        nano \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG HTTPLIB_VERSION=v0.18.5
+ARG NLOHMANN_VERSION=v3.11.3
+ARG STB_COMMIT=f7f20f39fe4f206c6f19e26ebfef7b261ee59ee4
+
+RUN mkdir -p /vendor/nlohmann \
+ && curl -fsSL -o /vendor/httplib.h \
+        https://raw.githubusercontent.com/yhirose/cpp-httplib/${HTTPLIB_VERSION}/httplib.h \
+ && curl -fsSL -o /vendor/nlohmann/json.hpp \
+        https://github.com/nlohmann/json/releases/download/${NLOHMANN_VERSION}/json.hpp \
+ && curl -fsSL -o /vendor/stb_image.h \
+        https://raw.githubusercontent.com/nothings/stb/${STB_COMMIT}/stb_image.h
+
+WORKDIR /work
+ENTRYPOINT []
+CMD ["bash"]
