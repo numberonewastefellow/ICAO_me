@@ -33,5 +33,8 @@ __pycache__/
 Thumbs.db
 *.swp
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # Docker
 .dockerignore.bak

@@ -228,6 +228,108 @@ saturate cores.
 
 ---
 
+## Development & extending
+
+### Image layering
+
+```
+ubuntu:22.04
+   └── ofiq:1.1.2          (Dockerfile)      OFIQ engine + models + data
+          ├── ofiq-api:1.1.2 (Dockerfile.api)   HTTP server binary
+          └── ofiq-dev:latest (Dockerfile.dev)  build tools, no app (bash shell)
+```
+
+All three Dockerfiles form a chain. The base does the expensive OFIQ compile
+**once**; the other two are cheap layers on top.
+
+| File | Image | `FROM` | Contains | Run as |
+|---|---|---|---|---|
+| `Dockerfile` | `ofiq:1.1.2` | `ubuntu:22.04` | Upstream OFIQ compiled from `third_party/OFIQ-Project` (Conan/CMake/GCC, ~20+ min). Runtime keeps `/opt/ofiq` — `libofiq_lib.so`, the ~21 ONNX models, and `data/`. | CLI tool — `ENTRYPOINT` is `OFIQSampleApp` |
+| `Dockerfile.api` | `ofiq-api:1.1.2` | `ofiq:1.1.2` | Our HTTP server. Vendors single-header libs, compiles `api/src/` into the `ofiq_server` binary, runs `ctest`. Adds `curl` + `thresholds.json`. | Long-lived web server on `:8080` |
+| `Dockerfile.dev` | `ofiq-dev:latest` | `ofiq:1.1.2` | Build tools (`cmake`, `gdb`, `nano`) + vendored headers. **No source code** — bind-mount `api/` in yourself. | Interactive `bash` shell |
+
+**Key point:** the HTTP server is entirely our code under `api/` and is built
+*only* by `Dockerfile.api`. The base image contains zero HTTP code — you never
+rebuild it to add server features.
+
+### What's in `api/` (the HTTP server source)
+
+| File | Purpose |
+|---|---|
+| `api/src/main.cc` | Entry point — reads env vars, wires components, starts the server |
+| `api/src/server.cc` | HTTP routes — `/healthz`, `/readyz`, `/version`, `/metrics`, `/v1/validate`, `/`. Most route work goes here. |
+| `api/src/worker_pool.cc` | Bounded MPMC queue + N worker threads |
+| `api/src/ofiq_runner.cc` | Wraps the OFIQ library call (`vectorQuality()`) — one instance per worker |
+| `api/src/verdict.cc` | ICAO pass/fail logic against `thresholds.json` |
+| `api/src/metrics.cc` | Prometheus `/metrics` counters |
+| `api/src/log.cc` | Logging |
+| `api/CMakeLists.txt` | Build config — **register new `.cc` files here** |
+| `api/web/index.html` | Drag-and-drop UI page (embedded into the binary at build time via `api/cmake/embed_html.cmake`) |
+| `api/tests/` | `ctest` unit tests — run automatically during the `Dockerfile.api` build |
+
+`api/vendor/` (downloaded headers) and `api/build/` (compiler output) are
+gitignored.
+
+### How to extend
+
+1. Edit or add files under `api/src/` — a new endpoint goes in `api/src/server.cc`.
+2. If you add a **new `.cc` file**, register it in `api/CMakeLists.txt`.
+3. Rebuild only the API image (the base `ofiq:1.1.2` stays cached):
+
+   ```bash
+   docker compose build ofiq-api
+   docker compose up -d --force-recreate ofiq-api
+   ```
+
+   This recompiles just your `api/` code (~30 s–1 min), not OFIQ.
+
+### Faster iteration: the dev image
+
+Rebuilding the Docker image on every edit is slow. Use `ofiq-dev:latest` to
+bind-mount `api/` and recompile in-container:
+
+```bash
+docker build -t ofiq-dev:latest -f Dockerfile.dev .
+
+docker run --rm -it -v "E:/projects/OIFQ/api:/work/api" ofiq-dev:latest
+# inside the container:
+cd /work/api && mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DVENDOR_DIR=/vendor ..
+cmake --build . -j"$(nproc)"
+ctest --output-on-failure
+```
+
+Edit on the host, recompile in the container in seconds. Once it works, run the
+real `docker compose build ofiq-api` to bake it into the shippable image.
+
+### Building on a fresh environment
+
+`docker compose build ofiq-api` only works if `ofiq:1.1.2` already exists
+locally — Compose does **not** auto-build the base first. On a new machine:
+
+1. The model zips in `third_party/downloads/` are **gitignored** (~796 MB, too
+   large for GitHub). Copy `OFIQ-Models.zip` and
+   `OFIQ-ImagesConformanceTest+TargetValues.zip` into `third_party/downloads/`
+   before building, or the base build will fail.
+2. Build the base first, then the API:
+
+   ```bash
+   docker compose build          # builds both, base first
+   docker compose up -d ofiq-api
+   ```
+
+Alternatively, skip building entirely by transferring prebuilt images:
+
+```bash
+# on the source machine
+docker save ofiq:1.1.2 ofiq-api:1.1.2 -o ofiq-images.tar
+# on the target machine
+docker load -i ofiq-images.tar
+docker compose up -d ofiq-api
+```
+
+---
+
 ## Compatibility (per upstream BUILD.md)
 
 | Component | Version |
